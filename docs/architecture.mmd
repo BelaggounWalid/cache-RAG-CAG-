@@ -1,0 +1,88 @@
+flowchart TD
+    PDF[("📄 PDF source<br/>perf70_gti_kpfppfr.pdf<br/>480p · 110 MB · InDesign")]:::input
+
+    subgraph P0["PHASE 0 — INGESTION & CLASSIFICATION ✅"]
+        L1[PyMuPDF iter_pages<br/>texte + bbox + drawings]
+        L2[get_toc<br/>150 entrées]
+        L3[SectionMap<br/>page → L1/L2]
+        CLS[Classifier<br/>TOC + heuristiques<br/>→ 11 PageType]
+        REG[Regex S·A-Z·digits<br/>→ 558 codes]
+        L1 --> CLS
+        L2 --> L3 --> CLS
+        L1 --> REG
+    end
+
+    MANIFEST[("📋 pages_manifest.json<br/>480 pages typées")]:::data
+
+    subgraph P2["PHASE 2 — VLM EXTRACTION 🟡"]
+        RAS[Rasterize<br/>PNG 200 DPI<br/>idempotent · hash-named]
+        ROUTER{Router<br/>par page_type}
+        SCH_PRO[ProfileExtraction<br/>✅ 210 items]
+        SCH_PRF[PerformanceExtraction<br/>✅ 16 items]
+        SCH_VIT[VitrageExtraction<br/>✅ 68 items]
+        SCH_COU[CoupeExtraction<br/>✅ 39 items]
+        SCH_PD[PlanDebitExtraction<br/>⏸️ 0/97 — crédits]
+        VLM[Claude Sonnet 4.5 vision<br/>tool_choice = forced<br/>tenacity 3× retry<br/>diskcache SHA256]
+        ROUTER --> SCH_PRO --> VLM
+        ROUTER --> SCH_PRF --> VLM
+        ROUTER --> SCH_VIT --> VLM
+        ROUTER --> SCH_COU --> VLM
+        ROUTER --> SCH_PD --> VLM
+        RAS -. PNG .-> VLM
+    end
+
+    STRUCT[("📋 structured.json<br/>333 items / ~430")]:::data
+
+    subgraph P1["PHASE 1 — EXCEL ✅"]
+        XLS[polars + openpyxl<br/>14 onglets stylés]
+    end
+
+    XLSX[("📊 catalog_v3.xlsx<br/>14 onglets")]:::output
+
+    subgraph P3["PHASE 3 — RAG ✅"]
+        CHK[Chunker adaptatif<br/>TEXTE → 500-tok blocks<br/>TABLE → 1page = 1chunk<br/>VISUEL → +PNG path<br/>★ injecte structured.json]
+        CHUNKS[("📋 chunks.jsonl<br/>480 chunks")]
+        IDX[Qdrant local<br/>dense: e5-large 1024<br/>sparse: bm25]
+        QDB[("💾 qdrant_local/<br/>480 points")]
+        CHK --> CHUNKS --> IDX --> QDB
+    end
+
+    subgraph P4["PHASE 4 — Q&A"]
+        Q[/User query/]
+        EMB[Embed query<br/>e5 + bm25]
+        ROUT[Routing SOFT<br/>boost · pas de filtre dur ★]
+        RRF[Qdrant prefetch<br/>+ FusionQuery RRF]
+        IMG[Top-k visuels<br/>→ inject PNG]
+        LLM[Claude Sonnet 4.5<br/>multimodal<br/>citations p.XX]
+        Q --> EMB --> RRF
+        Q --> ROUT --> RRF
+        RRF --> IMG --> LLM
+    end
+
+    subgraph UI["INTERFACES ✅"]
+        CLI[CLI Typer<br/>classify · vlm · excel<br/>chunk · index · ask · all]
+        ST[Streamlit UI]
+    end
+
+    PDF --> L1
+    PDF --> RAS
+    CLS --> MANIFEST
+    REG --> MANIFEST
+    MANIFEST --> ROUTER
+    VLM --> STRUCT
+
+    MANIFEST --> XLS
+    STRUCT --> XLS
+    XLS --> XLSX
+
+    MANIFEST --> CHK
+    STRUCT -. enrichissement .-> CHK
+    PDF --> CHK
+
+    QDB --> RRF
+    LLM --> CLI
+    LLM --> ST
+
+    classDef input fill:#1e3a8a,stroke:#1e40af,color:#fff
+    classDef data fill:#fef3c7,stroke:#d97706,color:#000
+    classDef output fill:#065f46,stroke:#047857,color:#fff

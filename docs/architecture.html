@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>SAPA RAG — Architecture pipeline</title>
+<style>
+  body { font-family: ui-sans-serif, system-ui, sans-serif; background:#0b1220; color:#e5e7eb;
+         margin: 0; padding: 24px; }
+  h1 { color:#fff; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; margin: 12px 0 24px; font-size:13px; }
+  .legend span { padding:4px 10px; border-radius:6px; }
+  .ok    { background:#065f46; color:#fff; }
+  .warn  { background:#92400e; color:#fff; }
+  .data  { background:#fef3c7; color:#000; }
+  .input { background:#1e40af; color:#fff; }
+  .new   { background:#7c2d12; color:#fff; }
+  .mermaid { background:#111827; padding:24px; border-radius:12px; overflow:auto; }
+  details { margin-top:24px; background:#111827; padding:14px 18px; border-radius:10px; }
+  summary { cursor:pointer; font-weight:600; color:#fbbf24; }
+  code { background:#1f2937; padding:2px 6px; border-radius:4px; }
+  table { border-collapse:collapse; margin-top: 8px; }
+  th, td { border: 1px solid #334155; padding: 6px 12px; text-align: left; }
+  th { background:#1f2937; }
+</style>
+</head>
+<body>
+<h1>SAPA RAG — Architecture pipeline (rev. Docling)</h1>
+<div class="legend">
+  <span class="input">PDF source</span>
+  <span class="data">Données intermédiaires</span>
+  <span class="ok">✅ Done</span>
+  <span class="warn">🟡 En attente crédits</span>
+  <span class="new">🔄 Changé</span>
+</div>
+
+<div class="mermaid">
+flowchart TD
+    PDF[("📄 PDF source<br/>perf70_gti_kpfppfr.pdf<br/>480p · 110 MB")]:::input
+
+    subgraph P0["PHASE 0 — INGESTION & CLASSIFICATION"]
+        DOC["🆕 Docling (IBM)<br/><b>parser primaire</b><br/>layout-aware<br/>tables = cellules structurées<br/>FR + multilingue"]:::new
+        PMU["PyMuPDF<br/>geometry counters<br/>+ rasterization PNG"]
+        TOC["TOC reader (PyMuPDF)<br/>150 entrées"]
+        L3[SectionMap<br/>page → L1/L2]
+        CLS[Classifier<br/>TOC + heuristiques<br/>→ 11 PageType]
+        REG[Regex codes<br/>→ 558 uniques]
+        DOC --> CLS
+        DOC --> REG
+        PMU --> CLS
+        TOC --> L3 --> CLS
+    end
+
+    MANIFEST[("📋 pages_manifest.json<br/>480 pages typées")]:::data
+
+    subgraph P2["PHASE 2 — VLM EXTRACTION 🟡"]
+        RAS["Rasterize PNG 200 DPI<br/>(PyMuPDF, idempotent)"]
+        ROUTER{Router<br/>par page_type}
+        SCH_PRO[ProfileExtraction<br/>✅ 210]
+        SCH_PRF[PerformanceExtraction<br/>✅ 16]
+        SCH_VIT[VitrageExtraction<br/>✅ 68]
+        SCH_COU[CoupeExtraction<br/>✅ 39]
+        SCH_PD[PlanDebitExtraction<br/>⏸️ 0/97 — crédits]
+        VLM[Claude Sonnet 4.5 vision<br/>tool_choice = forced<br/>tenacity · diskcache]
+        ROUTER --> SCH_PRO --> VLM
+        ROUTER --> SCH_PRF --> VLM
+        ROUTER --> SCH_VIT --> VLM
+        ROUTER --> SCH_COU --> VLM
+        ROUTER --> SCH_PD --> VLM
+        RAS -. PNG .-> VLM
+    end
+
+    STRUCT[("📋 structured.json<br/>333 items / ~430")]:::data
+
+    subgraph P1["PHASE 1 — EXCEL ✅"]
+        XLS[polars + openpyxl<br/>14 onglets stylés]
+    end
+
+    XLSX[("📊 catalog_v3.xlsx")]:::output
+
+    subgraph P3["PHASE 3 — RAG ✅"]
+        CHK["Chunker adaptatif<br/>★ injecte structured.json<br/>★ tables Docling déjà markdown"]:::new
+        CHUNKS[("📋 chunks.jsonl · 480")]
+        IDX[Qdrant local<br/>dense e5-large 1024<br/>sparse bm25]
+        QDB[("💾 qdrant_local/<br/>480 points")]
+        CHK --> CHUNKS --> IDX --> QDB
+    end
+
+    subgraph P4["PHASE 4 — Q&A"]
+        Q[/User query/]
+        EMB[Embed query<br/>e5 + bm25]
+        ROUT[Routing SOFT ★<br/>boost · pas de filtre]
+        RRF[Qdrant prefetch<br/>+ FusionQuery RRF]
+        IMG[Top-k visuels<br/>→ inject PNG]
+        LLM[Claude Sonnet 4.5<br/>multimodal · citations]
+        Q --> EMB --> RRF
+        Q --> ROUT --> RRF
+        RRF --> IMG --> LLM
+    end
+
+    subgraph UI["INTERFACES ✅"]
+        CLI[CLI Typer]
+        ST[Streamlit UI]
+    end
+
+    PDF --> DOC
+    PDF --> PMU
+    PDF --> TOC
+    PDF --> RAS
+    CLS --> MANIFEST
+    REG --> MANIFEST
+    MANIFEST --> ROUTER
+    VLM --> STRUCT
+
+    MANIFEST --> XLS
+    STRUCT --> XLS
+    XLS --> XLSX
+
+    DOC -. texte + tables markdown .-> CHK
+    MANIFEST --> CHK
+    STRUCT -. enrichissement .-> CHK
+
+    QDB --> RRF
+    LLM --> CLI
+    LLM --> ST
+
+    classDef input fill:#1e40af,stroke:#3b82f6,color:#fff
+    classDef data fill:#fef3c7,stroke:#d97706,color:#000
+    classDef output fill:#065f46,stroke:#10b981,color:#fff
+    classDef new fill:#7c2d12,stroke:#ea580c,color:#fff
+</div>
+
+<details open>
+<summary>🔄 Pourquoi Docling remplace PyMuPDF</summary>
+<table>
+  <thead><tr><th>Tâche</th><th>PyMuPDF</th><th>Docling</th></tr></thead>
+  <tbody>
+    <tr><td>Texte simple</td><td>OK</td><td>OK</td></tr>
+    <tr><td>Tables avec cellules fusionnées</td><td>❌ texte mélangé</td><td>✅ cellules avec spans</td></tr>
+    <tr><td>Layout multi-colonnes</td><td>❌ ordre arbitraire</td><td>✅ reading order respecté</td></tr>
+    <tr><td>Headings hiérarchiques</td><td>❌ texte plat</td><td>✅ niveaux détectés</td></tr>
+    <tr><td>Captions de figures</td><td>❌</td><td>✅</td></tr>
+    <tr><td>Listes</td><td>❌</td><td>✅</td></tr>
+    <tr><td>Vitesse</td><td>⚡ ~0.5s/page</td><td>🐢 ~5s/page</td></tr>
+    <tr><td>Coût</td><td>Gratuit</td><td>Gratuit (modèle local)</td></tr>
+    <tr><td>Setup</td><td>pip simple</td><td>~5 GB (torch + modèles ML)</td></tr>
+  </tbody>
+</table>
+<p><b>Décision</b> : Docling pour le texte structuré (PHASE 0 et le chunker), PyMuPDF reste pour la rasterization et les compteurs de drawings (utilisés par le classifier).</p>
+</details>
+
+<details>
+<summary>Alternatives professionnelles (cloud)</summary>
+<table>
+  <thead><tr><th>Solution</th><th>Force</th><th>Coût</th></tr></thead>
+  <tbody>
+    <tr><td>Azure Document Intelligence</td><td>Gold-standard tables, OCR pro</td><td>$1.50 / 1k pages</td></tr>
+    <tr><td>AWS Textract</td><td>Tables + forms</td><td>$1.50 / 1k pages</td></tr>
+    <tr><td>Google Document AI</td><td>OCR + entities</td><td>$1.50 / 1k pages</td></tr>
+    <tr><td>LlamaParse (LlamaIndex)</td><td>Excellent tables complexes</td><td>$3 / 1k pages</td></tr>
+  </tbody>
+</table>
+<p>Pour basculer plus tard : remplacer <code>docling_parser.py</code> par un wrapper Azure DI sans toucher au reste de la pipeline.</p>
+</details>
+
+<details>
+<summary>Surface API conservée (zéro régression)</summary>
+<p>L'interface publique de <code>ingest/pdf_loader.py</code> est inchangée :</p>
+<pre><code>iter_pages(pdf_path) → Iterator[RawPage]
+get_toc(pdf_path)    → list[(level, title, page)]
+RawPage(page_num, text, text_clean, n_images, n_drawings)</code></pre>
+<p>Les modules en aval (<code>classify.py</code>, <code>chunker.py</code>, <code>extract_structured.py</code>) ne changent pas.</p>
+</details>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'dark', securityLevel: 'loose',
+                       flowchart: { htmlLabels: true, curve: 'basis' } });
+</script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+# =====================================================
+#  Secrets — JAMAIS pousser
+# =====================================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+.secrets/
+
+# =====================================================
+#  Data : PDFs sources, sorties, caches, modèles
+# =====================================================
+# PDFs sources (lourds, possiblement sous copyright)
+pdfs/
+# manifest, chunks, qdrant_local, structured.json, _cache
+data/
+# Excel V1/V2/V3 générés
+*.xlsx
+# tout PDF à la racine ou ailleurs
+*.pdf
+# exception : si jamais on commit un schéma .pdf dans docs/
+!docs/**/*.pdf
+
+# Caches & rasters
+data/pages_png/
+data/output/
+**/qdrant_local/
+**/_cache/
+.cache/
+.huggingface/
+
+# =====================================================
+#  Logs & artefacts intermédiaires (texte du PDF, etc.)
+# =====================================================
+*.log
+*.jsonl
+*.bak
+*.bak.*
+chacal_*.txt
+Chacal_Help_*.pdf
+
+# =====================================================
+#  Python
+# =====================================================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+build/
+dist/
+
+# =====================================================
+#  Node / Vite
+# =====================================================
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/build/
+*.tsbuildinfo
+
+# =====================================================
+#  IDE / OS
+# =====================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# =====================================================
+#  Notebook
+# =====================================================
+.ipynb_checkpoints/
+
+# Local launcher logs
+api.log
+vite.log
