@@ -1,18 +1,20 @@
 """Build the consolidated Excel snapshot from the page manifest + structured.json."""
+
 from __future__ import annotations
+
 import json
 from collections import defaultdict
 from pathlib import Path
+
 import polars as pl
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from ..config import settings
-from ..models import PageInfo, PageType
 from ..ingest.codes import family_hint
-
+from ..models import PageInfo, PageType
 
 HEADER_FILL = PatternFill("solid", fgColor="1F2937")
 HEADER_FONT = Font(bold=True, color="FFFFFF")
@@ -33,15 +35,19 @@ def _all_code_mentions(infos: list[PageInfo]) -> pl.DataFrame:
                     "family_hint": family_hint(c),
                 }
             )
-    return pl.DataFrame(rows) if rows else pl.DataFrame(
-        schema={
-            "code": pl.Utf8,
-            "page": pl.Int64,
-            "section_l1": pl.Utf8,
-            "section_l2": pl.Utf8,
-            "page_type": pl.Utf8,
-            "family_hint": pl.Utf8,
-        }
+    return (
+        pl.DataFrame(rows)
+        if rows
+        else pl.DataFrame(
+            schema={
+                "code": pl.Utf8,
+                "page": pl.Int64,
+                "section_l1": pl.Utf8,
+                "section_l2": pl.Utf8,
+                "page_type": pl.Utf8,
+                "family_hint": pl.Utf8,
+            }
+        )
     )
 
 
@@ -102,7 +108,10 @@ def _stats(infos: list[PageInfo], mentions: pl.DataFrame) -> pl.DataFrame:
         by_type[p.page_type.value] += 1
     rows = [
         {"metric": "Pages totales", "valeur": len(infos)},
-        {"metric": "Codes uniques", "valeur": mentions["code"].n_unique() if not mentions.is_empty() else 0},
+        {
+            "metric": "Codes uniques",
+            "valeur": mentions["code"].n_unique() if not mentions.is_empty() else 0,
+        },
         {"metric": "Mentions de codes", "valeur": mentions.height},
     ]
     for t, n in sorted(by_type.items()):
@@ -117,6 +126,7 @@ def _coerce(v):
         return ", ".join(str(x) for x in v)
     if isinstance(v, dict):
         import json as _json
+
         return _json.dumps(v, ensure_ascii=False)
     return v
 
@@ -141,8 +151,7 @@ def _write_sheet(wb: Workbook, name: str, df: pl.DataFrame) -> None:
     # Auto column width (rough)
     for col_idx, h in enumerate(headers, start=1):
         max_len = max(
-            [len(str(h))]
-            + [len(str(v)) if v is not None else 0 for v in df[h].to_list()[:200]]
+            [len(str(h))] + [len(str(v)) if v is not None else 0 for v in df[h].to_list()[:200]]
         )
         ws.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 2, 60)
 
@@ -153,9 +162,7 @@ def _write_sheet(wb: Workbook, name: str, df: pl.DataFrame) -> None:
     last_col = get_column_letter(len(headers))
     last_row = df.height + 1
     table = Table(displayName=f"T_{name.replace(' ', '_')[:25]}", ref=f"A1:{last_col}{last_row}")
-    table.tableStyleInfo = TableStyleInfo(
-        name="TableStyleMedium9", showRowStripes=True
-    )
+    table.tableStyleInfo = TableStyleInfo(name="TableStyleMedium9", showRowStripes=True)
     ws.add_table(table)
 
 

@@ -6,7 +6,9 @@ Codes observed in the catalog:
 Pattern: 'S' + 1-3 letters/digits prefix + 3-6 digits/alphanums.
 We use a permissive but precise regex.
 """
+
 from __future__ import annotations
+
 import re
 
 # S + (1 to 3 capital letters OR digits) + 3 to 6 alphanumerics (mostly digits)

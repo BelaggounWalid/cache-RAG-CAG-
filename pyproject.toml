@@ -1,0 +1,39 @@
+[project]
+name = "sapa-rag"
+version = "0.1.0"
+description = "RAG + Excel extraction sur catalogues techniques aluminium SAPA"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src"]
+extend-exclude = [
+  "data",
+  "frontend",
+  "design",
+  "docs",
+  "pdfs",
+  ".venv",
+]
+
+[tool.ruff.lint]
+# Conservative selection: pyflakes (F), pycodestyle (E), import (I),
+# bugbear (B), simplify (SIM), comprehensions (C4), pyupgrade (UP).
+select = ["E", "F", "I", "B", "SIM", "C4", "UP"]
+# E501 line-too-long disabled — we already enforce via formatter, and some
+# log strings / prompts are intentionally longer than 100 chars.
+ignore = ["E501", "B008", "B905"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/sapa_rag/__init__.py" = ["F401"]
+"src/sapa_rag/api/main.py" = ["B008"]   # FastAPI Depends() in defaults
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"

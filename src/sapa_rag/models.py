@@ -1,10 +1,11 @@
 from __future__ import annotations
-from enum import Enum
-from typing import Optional
+
+from enum import StrEnum
+
 from pydantic import BaseModel, Field
 
 
-class PageType(str, Enum):
+class PageType(StrEnum):
     TEXT = "text"
     TABLE = "table"
     NOMENCLATURE = "nomenclature"
@@ -23,38 +24,38 @@ class PageInfo(BaseModel):
     text_len: int
     n_images: int
     n_drawings: int
-    section_l1: Optional[str] = None
-    section_l2: Optional[str] = None
+    section_l1: str | None = None
+    section_l2: str | None = None
     page_type: PageType = PageType.MIXED
     codes: list[str] = Field(default_factory=list)
 
 
 class Profile(BaseModel):
     code: str
-    family: Optional[str] = None
-    description: Optional[str] = None
+    family: str | None = None
+    description: str | None = None
     page: int
     catalog: str = "perf70_gti"
 
 
 class Accessory(BaseModel):
     code: str
-    category: Optional[str] = None
-    description: Optional[str] = None
+    category: str | None = None
+    description: str | None = None
     page: int
     catalog: str = "perf70_gti"
 
 
 class PerformanceRow(BaseModel):
     config: str
-    serie: Optional[str] = None
-    largeur: Optional[float] = None
-    hauteur: Optional[float] = None
-    ug: Optional[float] = None
-    ud: Optional[float] = None
-    uf: Optional[float] = None
-    intercalaire: Optional[str] = None
-    isolation: Optional[str] = None
+    serie: str | None = None
+    largeur: float | None = None
+    hauteur: float | None = None
+    ug: float | None = None
+    ud: float | None = None
+    uf: float | None = None
+    intercalaire: str | None = None
+    isolation: str | None = None
     page: int
     catalog: str = "perf70_gti"
 
@@ -62,7 +63,7 @@ class PerformanceRow(BaseModel):
 class CodeMention(BaseModel):
     code: str
     page: int
-    section_l1: Optional[str] = None
-    section_l2: Optional[str] = None
+    section_l1: str | None = None
+    section_l2: str | None = None
     page_type: PageType
     catalog: str = "perf70_gti"

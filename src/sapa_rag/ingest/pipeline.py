@@ -1,17 +1,20 @@
 """Phase 0 pipeline: classify all pages, extract codes, persist a manifest."""
+
 from __future__ import annotations
+
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
+
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from ..config import settings
-from ..models import PageInfo, PageType
-from .pdf_loader import iter_pages, get_toc
-from .sections import SectionMap
+from ..models import PageInfo
 from .classify import classify_page
 from .codes import extract_codes
+from .pdf_loader import get_toc, iter_pages
+from .sections import SectionMap
 
 console = Console()
 

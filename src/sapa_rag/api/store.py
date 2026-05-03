@@ -1,15 +1,15 @@
 """Lightweight conversation store backed by a JSON file (good enough for V1)."""
+
 from __future__ import annotations
+
 import json
 import threading
 import time
 import uuid
 from datetime import datetime
-from pathlib import Path
 
 from ..config import settings
 from .schemas import Conversation, ConversationSummary, Message
-
 
 _LOCK = threading.RLock()
 _PATH = settings.output_dir / "conversations.json"
@@ -114,7 +114,11 @@ def append_message(conv_id: str, msg: Message, set_title_if_empty: bool = False)
         conv = data[conv_id]
         conv.setdefault("messages", []).append(msg.model_dump())
         conv["updated_at"] = time.time()
-        if set_title_if_empty and (not conv.get("title") or conv["title"] == "Nouvelle conversation") and msg.role == "user":
+        if (
+            set_title_if_empty
+            and (not conv.get("title") or conv["title"] == "Nouvelle conversation")
+            and msg.role == "user"
+        ):
             conv["title"] = msg.text[:60].strip()
         _save(data)
 

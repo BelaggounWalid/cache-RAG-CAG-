@@ -1,5 +1,7 @@
 # SAPA RAG — Chacal Bot
 
+[![CI](https://github.com/BelaggounWalid/cache-RAG-CAG-/actions/workflows/ci.yml/badge.svg)](https://github.com/BelaggounWalid/cache-RAG-CAG-/actions/workflows/ci.yml)
+
 Pipeline RAG + extraction Excel structurée pour catalogues techniques de menuiserie aluminium SAPA (Performance 70 GTI/GTI+, et catalogues à structure équivalente à venir).
 
 ```

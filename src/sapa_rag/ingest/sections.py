@@ -1,5 +1,7 @@
 """Map every PDF page to its TOC L1 / L2 section."""
+
 from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -8,7 +10,7 @@ class SectionMap:
     by_page: dict[int, tuple[str | None, str | None]]
 
     @classmethod
-    def build(cls, toc: list[tuple[int, str, int]], total_pages: int) -> "SectionMap":
+    def build(cls, toc: list[tuple[int, str, int]], total_pages: int) -> SectionMap:
         # Sort by page; iterate forward filling L1/L2 until next entry replaces them.
         toc_sorted = sorted(toc, key=lambda x: x[2])
         by_page: dict[int, tuple[str | None, str | None]] = {}

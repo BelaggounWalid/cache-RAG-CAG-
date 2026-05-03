@@ -4,15 +4,15 @@
 - NOMENCLATURE/TABLE/PERFORMANCE/VITRAGE: 1 page = 1 chunk (preserve structure).
 - COUPE/PLAN_DEBIT/PLAN_MONTAGE: 1 page = 1 chunk + image metadata.
 """
+
 from __future__ import annotations
-from dataclasses import dataclass, asdict
-from pathlib import Path
+
 import json
+from dataclasses import asdict, dataclass
 
 from ..config import settings
+from ..ingest.pdf_loader import iter_pages
 from ..models import PageInfo, PageType
-from ..ingest.pdf_loader import iter_pages, RawPage
-
 
 CHUNK_CHARS = 2000  # ≈ 500 tokens
 OVERLAP = 200
@@ -43,7 +43,9 @@ def _load_structured_by_page() -> dict[int, list[str]]:
                     if all(isinstance(x, dict) for x in v):
                         for x in v:
                             parts.append(
-                                "(" + ", ".join(f"{kk}={vv}" for kk, vv in x.items() if vv is not None) + ")"
+                                "("
+                                + ", ".join(f"{kk}={vv}" for kk, vv in x.items() if vv is not None)
+                                + ")"
                             )
                     else:
                         parts.append(f"{k}=" + ", ".join(str(x) for x in v))
@@ -99,6 +101,7 @@ def chunk_corpus(infos: list[PageInfo]) -> list[Chunk]:
         page_image = None
         if is_visual:
             from ..cache import file_sha256
+
             pdf_hash = file_sha256(settings.pdf_path)[:12]
             page_image = str(settings.pages_png_dir / pdf_hash / f"p{info.page_num:04d}.png")
         if info.page_type in {PageType.TEXT, PageType.MIXED}:
@@ -123,7 +126,11 @@ def chunk_corpus(infos: list[PageInfo]) -> list[Chunk]:
             structured_blobs = structured_by_page.get(info.page_num, [])
             enriched = raw.text_clean
             if structured_blobs:
-                enriched = (raw.text_clean + "\n\n--- DONNÉES STRUCTURÉES ---\n" + "\n".join(structured_blobs)).strip()
+                enriched = (
+                    raw.text_clean
+                    + "\n\n--- DONNÉES STRUCTURÉES ---\n"
+                    + "\n".join(structured_blobs)
+                ).strip()
             chunks.append(
                 Chunk(
                     chunk_id=f"p{info.page_num:04d}",

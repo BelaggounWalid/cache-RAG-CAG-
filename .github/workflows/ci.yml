@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs of the same workflow on the same branch (saves runner minutes).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Backend (Python) — lint + typecheck + import smoke
+  # ---------------------------------------------------------------------
+  backend:
+    name: Backend · Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install ruff (lightweight — no heavy ML deps in CI)
+        run: pip install ruff
+
+      - name: Lint (ruff)
+        run: ruff check src
+
+      - name: Format check (ruff)
+        run: ruff format --check src
+
+      - name: Install lightweight dependencies (no torch/docling)
+        # Heavy deps (docling, fastembed, qdrant) are not needed for the import smoke
+        # — we just verify the code parses and imports cleanly.
+        run: |
+          pip install \
+            'pydantic>=2.7' 'pydantic-settings>=2.3' 'python-dotenv>=1.0' \
+            'fastapi>=0.110' 'uvicorn[standard]>=0.30' \
+            'structlog>=24.1' 'tenacity>=8.5' 'diskcache>=5.6' \
+            'typer>=0.12' 'rich>=13.7' 'tqdm>=4.66'
+
+      - name: Smoke import (config + models + schemas + api)
+        env:
+          PYTHONPATH: src
+        run: |
+          python -c "from sapa_rag.config import settings; print('config:', settings.png_dpi)"
+          python -c "from sapa_rag.models import PageInfo, PageType; print('models OK')"
+          python -c "from sapa_rag.api.schemas import ChatRequest, ChatResponse; print('api OK')"
+
+  # ---------------------------------------------------------------------
+  # Frontend (TS / Vite) — typecheck + production build
+  # ---------------------------------------------------------------------
+  frontend:
+    name: Frontend · React/Vite
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 7

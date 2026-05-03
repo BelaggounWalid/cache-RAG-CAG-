@@ -1,8 +1,9 @@
 """Classify each PDF page into a PageType using TOC section + heuristics."""
+
 from __future__ import annotations
+
 from ..models import PageType
 from .pdf_loader import RawPage
-
 
 # Substrings (lowercased) used to override / refine TOC-based classification.
 KW_PERFORMANCE = ("performance thermique", "coefficient ud", "uf moyen", "isolation thermique")

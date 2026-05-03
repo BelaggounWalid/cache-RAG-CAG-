@@ -1,7 +1,7 @@
 from pathlib import Path
+
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 ROOT = Path(__file__).resolve().parents[2]
 # Load .env explicitly first so env vars are available regardless of CWD.

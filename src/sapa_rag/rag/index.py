@@ -4,12 +4,13 @@ Singletons: embedders + Qdrant client are loaded once and reused. Without this,
 each query re-loads the e5-large model (~15s) and re-opens the embedded Qdrant
 DB (~2s) — the dominant latency cost.
 """
+
 from __future__ import annotations
+
 import json
-import uuid
 import threading
+import uuid
 from functools import lru_cache
-from pathlib import Path
 
 from ..config import settings
 from ..logging_setup import log
@@ -26,6 +27,7 @@ _LOCK = threading.RLock()
 @lru_cache(maxsize=1)
 def _dense_embedder():
     from fastembed import TextEmbedding
+
     log.info("loading_dense_embedder", model=DENSE_MODEL)
     return TextEmbedding(model_name=DENSE_MODEL)
 
@@ -33,6 +35,7 @@ def _dense_embedder():
 @lru_cache(maxsize=1)
 def _sparse_embedder():
     from fastembed import SparseTextEmbedding
+
     log.info("loading_sparse_embedder", model=SPARSE_MODEL)
     return SparseTextEmbedding(model_name=SPARSE_MODEL)
 
@@ -40,6 +43,7 @@ def _sparse_embedder():
 @lru_cache(maxsize=1)
 def _client():
     from qdrant_client import QdrantClient
+
     log.info("opening_qdrant", path=str(settings.output_dir / "qdrant_local"))
     return QdrantClient(path=str(settings.output_dir / "qdrant_local"))
 
@@ -122,6 +126,7 @@ def hybrid_search(query: str, top_k: int = 8, page_types: list[str] | None = Non
         return _QUERY_CACHE[cache_key]
 
     from qdrant_client import models as qm
+
     dense = _dense_embedder()
     sparse = _sparse_embedder()
     dv = next(iter(dense.embed([f"query: {query}"])))

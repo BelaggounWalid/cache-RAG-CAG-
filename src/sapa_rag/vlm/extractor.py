@@ -1,22 +1,24 @@
 """Claude Sonnet 4.6 VLM extractor with strict tool-use schemas, retries, and cache."""
+
 from __future__ import annotations
+
 import base64
-import json
 from pathlib import Path
-from typing import Type, TypeVar
+from typing import TypeVar
+
 from anthropic import Anthropic
 from pydantic import BaseModel
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from ..config import settings
 from ..cache import cached_call, file_sha256
+from ..config import settings
 from ..logging_setup import log
 from .schemas import (
-    ProfileExtraction,
-    PerformanceExtraction,
-    VitrageExtraction,
     CoupeExtraction,
+    PerformanceExtraction,
     PlanDebitExtraction,
+    ProfileExtraction,
+    VitrageExtraction,
 )
 
 MODEL = "claude-sonnet-4-5-20250929"  # Latest Sonnet at writing time. Override via env if newer.
@@ -47,7 +49,7 @@ def _encode_image(path: Path) -> dict:
     }
 
 
-def _pydantic_to_tool(schema_cls: Type[BaseModel], name: str, desc: str) -> dict:
+def _pydantic_to_tool(schema_cls: type[BaseModel], name: str, desc: str) -> dict:
     schema = schema_cls.model_json_schema()
     return {
         "name": name,
@@ -103,7 +105,7 @@ PROMPTS = {
     retry=retry_if_exception_type(Exception),
     reraise=True,
 )
-def _call(image_path: Path, schema_cls: Type[T]) -> T:
+def _call(image_path: Path, schema_cls: type[T]) -> T:
     tool_name, tool_desc, user_prompt = PROMPTS[schema_cls]
     tool = _pydantic_to_tool(schema_cls, tool_name, tool_desc)
     client = get_client()
@@ -128,7 +130,7 @@ def _call(image_path: Path, schema_cls: Type[T]) -> T:
     raise RuntimeError(f"No tool_use block in response for {tool_name}")
 
 
-def extract(image_path: Path, schema_cls: Type[T]) -> T:
+def extract(image_path: Path, schema_cls: type[T]) -> T:
     """Cached, retried VLM call."""
     img_hash = file_sha256(image_path)[:12]
     key = (img_hash, schema_cls.__name__, MODEL)

@@ -1,8 +1,11 @@
 """diskcache-backed idempotency layer for VLM calls and other expensive ops."""
+
 from __future__ import annotations
+
 import hashlib
 import json
 from pathlib import Path
+
 from diskcache import Cache
 
 from .config import settings

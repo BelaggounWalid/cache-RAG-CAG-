@@ -1,10 +1,13 @@
 """Rasterize PDF pages to PNG (idempotent, hash-named)."""
+
 from __future__ import annotations
+
 from pathlib import Path
+
 import fitz
 
-from ..config import settings
 from ..cache import file_sha256
+from ..config import settings
 from ..logging_setup import log
 
 

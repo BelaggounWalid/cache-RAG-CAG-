@@ -1,16 +1,18 @@
 """CLI: `python -m sapa_rag.cli {classify|excel|phase01|vlm|all}`."""
+
 from __future__ import annotations
+
 import json
-from typing import Optional
+
 import typer
 from rich.console import Console
 from rich.table import Table
 
 from .config import settings
-from .ingest.pipeline import run_classification, summarize
 from .excel.exporter import build_excel
-from .models import PageInfo, PageType
+from .ingest.pipeline import run_classification, summarize
 from .logging_setup import configure_logging
+from .models import PageInfo, PageType
 
 app = typer.Typer(help="SAPA RAG — Phase 0/1/2 CLI")
 console = Console()
@@ -56,11 +58,11 @@ def phase01():
 
 @app.command()
 def vlm(
-    types: Optional[str] = typer.Option(
+    types: str | None = typer.Option(
         None,
         help="Comma-sep page types: nomenclature,performance,vitrage,coupe. Default: all four.",
     ),
-    limit: Optional[int] = typer.Option(None, help="Cap on pages (debug)"),
+    limit: int | None = typer.Option(None, help="Cap on pages (debug)"),
 ):
     """Run the VLM extractor on selected page-types and save structured.json."""
     from .extract_structured import run as run_vlm
@@ -74,7 +76,7 @@ def vlm(
 
 @app.command()
 def all(
-    vlm_limit: Optional[int] = typer.Option(None, help="Cap VLM pages (cost control)"),
+    vlm_limit: int | None = typer.Option(None, help="Cap VLM pages (cost control)"),
 ):
     """Phase 0 + Phase 1 + Phase 2 (VLM) + Excel rebuild."""
     infos = run_classification()
@@ -120,7 +122,9 @@ def ask(question: str):
     console.print()
     console.print("[bold]Citations:[/]")
     for c in res["citations"]:
-        console.print(f"  - p.{c['page']} | {c.get('section_l1')} > {c.get('section_l2')} | score={c.get('score'):.3f}")
+        console.print(
+            f"  - p.{c['page']} | {c.get('section_l1')} > {c.get('section_l2')} | score={c.get('score'):.3f}"
+        )
 
 
 if __name__ == "__main__":

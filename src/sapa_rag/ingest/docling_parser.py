@@ -9,7 +9,9 @@ Why we kept PyMuPDF:
   - For TOC reading (`doc.get_toc()`), which is solid.
   - As a fallback if Docling fails on a corrupt page.
 """
+
 from __future__ import annotations
+
 import re
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -51,7 +53,7 @@ class StructuredTable:
 @dataclass
 class StructuredPage:
     page: int
-    text: str                    # Markdown-style serialization (headings, paragraphs, lists)
+    text: str  # Markdown-style serialization (headings, paragraphs, lists)
     tables: list[StructuredTable] = field(default_factory=list)
 
     @property
@@ -71,9 +73,9 @@ def _converter():
     We use the *fast* TableFormer model — ~4x lighter on RAM than 'accurate',
     crucial for 480-page catalogs with vector-heavy pages on consumer CPU.
     """
-    from docling.document_converter import DocumentConverter, PdfFormatOption
     from docling.datamodel.base_models import InputFormat
     from docling.datamodel.pipeline_options import PdfPipelineOptions, TableFormerMode
+    from docling.document_converter import DocumentConverter, PdfFormatOption
 
     pipeline = PdfPipelineOptions()
     pipeline.do_ocr = False  # PDF is native text, no OCR needed
@@ -91,7 +93,10 @@ SLICE_SIZE = 25  # pages per Docling pass (memory cap)
 
 def _split_pdf(pdf_path: Path, pages: list[int]) -> Path:
     """Build a temp PDF containing only the given page numbers (1-indexed)."""
-    import fitz, tempfile
+    import tempfile
+
+    import fitz
+
     src = fitz.open(pdf_path)
     dst = fitz.open()
     try:
@@ -114,7 +119,8 @@ def parse_pdf(pdf_path: Path) -> tuple[list[StructuredPage], list[tuple[int, str
 
     TOC is filled from PyMuPDF (Docling does not expose it cleanly yet).
     """
-    from ..cache import file_sha256, cache as _disk_cache
+    from ..cache import cache as _disk_cache
+    from ..cache import file_sha256
 
     pdf_hash = file_sha256(pdf_path)[:16]
     cache_key = f"docling:v1:{pdf_hash}"
@@ -126,7 +132,10 @@ def parse_pdf(pdf_path: Path) -> tuple[list[StructuredPage], list[tuple[int, str
         return pages, toc
 
     log.info("docling_parse_start", pdf=str(pdf_path))
-    import fitz, gc
+    import gc
+
+    import fitz
+
     src = fitz.open(pdf_path)
     total = src.page_count
     src.close()
@@ -188,19 +197,23 @@ def parse_pdf(pdf_path: Path) -> tuple[list[StructuredPage], list[tuple[int, str
                                     col_span=tc.end_col_offset_idx - tc.start_col_offset_idx,
                                 )
                             )
-                    page.tables.append(StructuredTable(page=gpage, n_rows=rows, n_cols=cols, cells=cells))
+                    page.tables.append(
+                        StructuredTable(page=gpage, n_rows=rows, n_cols=cols, cells=cells)
+                    )
 
             for pn, buf in text_buffers.items():
                 if buf:
                     cur = by_page.get(pn)
                     if cur is None:
                         continue
-                    cur.text = _clean(("\n".join(buf)) if not cur.text else (cur.text + "\n" + "\n".join(buf)))
+                    cur.text = _clean(
+                        ("\n".join(buf)) if not cur.text else (cur.text + "\n" + "\n".join(buf))
+                    )
         finally:
-            try:
+            import contextlib
+
+            with contextlib.suppress(Exception):
                 slice_pdf.unlink()
-            except Exception:
-                pass
             gc.collect()
 
     log.info("docling_parse_done", n_pages=len(by_page))
@@ -208,6 +221,7 @@ def parse_pdf(pdf_path: Path) -> tuple[list[StructuredPage], list[tuple[int, str
 
     # TOC via PyMuPDF (kept here because Docling's TOC story is weak as of 2.x).
     import fitz
+
     fdoc = fitz.open(pdf_path)
     try:
         toc = [(lvl, _clean(title), pg) for lvl, title, pg in fdoc.get_toc()]
@@ -235,8 +249,13 @@ def _page_to_dict(p: StructuredPage) -> dict:
                 "n_rows": t.n_rows,
                 "n_cols": t.n_cols,
                 "cells": [
-                    {"row": c.row, "col": c.col, "text": c.text,
-                     "row_span": c.row_span, "col_span": c.col_span}
+                    {
+                        "row": c.row,
+                        "col": c.col,
+                        "text": c.text,
+                        "row_span": c.row_span,
+                        "col_span": c.col_span,
+                    }
                     for c in t.cells
                 ],
             }

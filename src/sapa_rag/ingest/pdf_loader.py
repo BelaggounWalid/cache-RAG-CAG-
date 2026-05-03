@@ -8,16 +8,18 @@ Implementation: each call goes through Docling for *text* (markdown-style),
 and falls back to PyMuPDF for the geometry counters (n_images / n_drawings)
 that the page classifier relies on.
 """
+
 from __future__ import annotations
+
 import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+
 import fitz
 
 from ..logging_setup import log
 from . import docling_parser as dp
-
 
 _REPL = "�"
 

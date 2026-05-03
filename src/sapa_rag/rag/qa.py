@@ -5,16 +5,17 @@ Latency optimizations:
   * the system prompt is cached (Anthropic prompt caching, ~5-min TTL, ~90% cheaper on hit)
   * exact-question result memoization (in-process, 256 entries)
 """
+
 from __future__ import annotations
+
 import base64
 import hashlib
 import re
 import time
 from pathlib import Path
 
-from ..config import settings
-from ..vlm.extractor import MODEL, get_client
 from ..logging_setup import log
+from ..vlm.extractor import MODEL, get_client
 from .index import hybrid_search
 
 CODE_RE = re.compile(r"\bS[A-Z0-9]{1,3}[0-9][A-Z0-9]{2,5}\b")

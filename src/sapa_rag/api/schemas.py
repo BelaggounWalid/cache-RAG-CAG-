@@ -1,19 +1,21 @@
 from __future__ import annotations
-from typing import Optional, Literal
+
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class Citation(BaseModel):
     page: int
-    section_l1: Optional[str] = None
-    section_l2: Optional[str] = None
-    score: Optional[float] = None
-    page_type: Optional[str] = None
-    text_preview: Optional[str] = None
+    section_l1: str | None = None
+    section_l2: str | None = None
+    score: float | None = None
+    page_type: str | None = None
+    text_preview: str | None = None
 
 
 class ChatRequest(BaseModel):
-    conversation_id: Optional[str] = None
+    conversation_id: str | None = None
     message: str = Field(min_length=1, max_length=2000)
     top_k: int = 8
     rag: bool = True
@@ -40,7 +42,7 @@ class Message(BaseModel):
 class ConversationSummary(BaseModel):
     id: str
     title: str
-    meta: str           # e.g. "Aujourd'hui · 14:32"
+    meta: str  # e.g. "Aujourd'hui · 14:32"
     group: Literal["today", "yesterday", "week", "older"]
     n_messages: int = 0
 
@@ -66,4 +68,4 @@ class FeedbackRequest(BaseModel):
     conversation_id: str
     message_id: str
     helpful: bool
-    comment: Optional[str] = None
+    comment: str | None = None

@@ -1,22 +1,24 @@
 """Phase 2: VLM-driven structured extraction on page-typed images."""
+
 from __future__ import annotations
+
 import json
-from pathlib import Path
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
+
 from rich.console import Console
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from .config import settings
-from .models import PageInfo, PageType
 from .ingest.rasterize import rasterize_pages
+from .logging_setup import log
+from .models import PageInfo, PageType
 from .vlm.extractor import extract
 from .vlm.schemas import (
-    ProfileExtraction,
-    PerformanceExtraction,
-    VitrageExtraction,
     CoupeExtraction,
+    PerformanceExtraction,
     PlanDebitExtraction,
+    ProfileExtraction,
+    VitrageExtraction,
 )
-from .logging_setup import log
 
 console = Console()
 
@@ -72,9 +74,6 @@ def run(types: set[PageType] | None = None, limit: int | None = None) -> dict:
         CoupeExtraction: "coupes",
         PlanDebitExtraction: "plan_debit",
     }
-    # Track which (page, schema) combos we already have to avoid duplicates.
-    seen_keys = {(r.get("page"), bucket) for bucket, rows in out.items() for r in rows if isinstance(r, dict)}
-
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -95,11 +94,7 @@ def run(types: set[PageType] | None = None, limit: int | None = None) -> dict:
             bucket = schema_to_bucket[schema_cls]
             # Drop any previous rows for this (page, bucket) — additive but page-replacing.
             out[bucket] = [r for r in out[bucket] if r.get("page") != p.page_num]
-            for item in (
-                getattr(result, "items", None)
-                or getattr(result, "coupes", None)
-                or []
-            ):
+            for item in getattr(result, "items", None) or getattr(result, "coupes", None) or []:
                 d = item.model_dump()
                 d["page"] = p.page_num
                 d["section_l1"] = p.section_l1

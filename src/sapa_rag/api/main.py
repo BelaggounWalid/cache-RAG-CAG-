@@ -1,5 +1,7 @@
 """FastAPI app for the Chacal Bot RAG frontend."""
+
 from __future__ import annotations
+
 import json
 import time
 import uuid
@@ -8,7 +10,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse, Response
+from fastapi.responses import FileResponse, StreamingResponse
 
 from ..config import settings
 from ..logging_setup import configure_logging, log
@@ -33,10 +35,12 @@ def _warmup():
     """Pre-load embedders + Qdrant + run a no-op query so the first user request is fast."""
     try:
         from ..rag.index import warmup
+
         warmup()
         log.info("api_ready")
     except Exception as exc:
         log.error("warmup_failed", err=str(exc))
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -134,10 +138,11 @@ def chat(req: ChatRequest) -> ChatResponse:
             res = answer(req.message, top_k=req.top_k, history=history)
         except Exception as exc:
             log.error("chat_fail", err=str(exc))
-            raise HTTPException(500, f"RAG error: {exc}")
+            raise HTTPException(500, f"RAG error: {exc}") from exc
     else:
         # No-RAG path: direct LLM (kept simple)
-        from ..vlm.extractor import get_client, MODEL
+        from ..vlm.extractor import MODEL, get_client
+
         msg = get_client().messages.create(
             model=MODEL,
             max_tokens=1024,
@@ -174,10 +179,8 @@ def chat(req: ChatRequest) -> ChatResponse:
 @app.post("/api/chat/stream")
 def chat_stream(req: ChatRequest):
     """Real-streaming: tokens flow from Anthropic to the client as they arrive."""
-    import base64
-    from pathlib import Path
-    from ..rag.qa import route, SYSTEM, _img_block, _cache_key, _ANSWER_CACHE
     from ..rag.index import hybrid_search
+    from ..rag.qa import _ANSWER_CACHE, SYSTEM, _cache_key, _img_block, route
     from ..vlm.extractor import MODEL, get_client
 
     conv_id = req.conversation_id or store.create().id
@@ -198,8 +201,8 @@ def chat_stream(req: ChatRequest):
         ckey = _cache_key(req.message, req.top_k)
         if not has_history and ckey in _ANSWER_CACHE:
             cached = _ANSWER_CACHE[ckey]
-            yield f'data: {json.dumps({"type":"step","step":"cache_hit"})}\n\n'
-            yield f'data: {json.dumps({"type":"delta","text":cached["answer"]}, ensure_ascii=False)}\n\n'
+            yield f"data: {json.dumps({'type': 'step', 'step': 'cache_hit'})}\n\n"
+            yield f"data: {json.dumps({'type': 'delta', 'text': cached['answer']}, ensure_ascii=False)}\n\n"
             bot_msg = Message(
                 id=uuid.uuid4().hex[:8],
                 role="bot",
@@ -226,7 +229,7 @@ def chat_stream(req: ChatRequest):
         try:
             raw = hybrid_search(req.message, top_k=req.top_k * 2)
         except Exception as exc:
-            yield f'data: {json.dumps({"type":"error","message":f"retrieval: {exc}"})}\n\n'
+            yield f"data: {json.dumps({'type': 'error', 'message': f'retrieval: {exc}'})}\n\n"
             return
         boost = set(routing["boost"])
         if boost:
@@ -284,9 +287,9 @@ def chat_stream(req: ChatRequest):
                     if not tok:
                         continue
                     full_text += tok
-                    yield f"data: {json.dumps({'type':'delta','text':tok}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'type': 'delta', 'text': tok}, ensure_ascii=False)}\n\n"
         except Exception as exc:
-            yield f'data: {json.dumps({"type":"error","message":f"llm: {exc}"})}\n\n'
+            yield f"data: {json.dumps({'type': 'error', 'message': f'llm: {exc}'})}\n\n"
             return
 
         # 4. persist + final event
